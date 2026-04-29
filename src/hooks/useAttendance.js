@@ -27,7 +27,7 @@ export function useAttendance() {
         setLoading(prev => ({ ...prev, [key]: value }))
     }
 
-    // 🔹 cargar estudiantes
+    // 🔹 1. Cargar estudiantes (solo una vez)
     useEffect(() => {
         async function loadStudents() {
             setLoadingKey('students', true)
@@ -46,35 +46,46 @@ export function useAttendance() {
         loadStudents()
     }, [])
 
-    // 🔹 cargar historial
-    useEffect(() => {
-        async function loadHistory() {
-            setLoadingKey('history', true)
-            try {
-                const { data, error } = await getHistorial(selectedDate)
-                if (error) throw error
+    // 🔹 2. Función reutilizable para historial
+    const loadHistory = useCallback(async () => {
+        if (students.length === 0) return
 
-                setHistory(data)
+        setLoadingKey('history', true)
 
-                const preloaded = {}
-                data.forEach(r => {
-                    preloaded[r.estudiante_id] = r.estado
-                })
+        try {
+            const { data, error } = await getHistorial(selectedDate)
+            if (error) throw error
 
-                setAttendance(preloaded)
+            setHistory(data)
 
-            } catch (err) {
-                console.error(err)
-                setError('Error cargando historial')
-            } finally {
-                setLoadingKey('history', false)
-            }
+            const preloaded = {}
+
+            // Todos ausentes por defecto
+            students.forEach(s => {
+                preloaded[s.id] = "A"
+            })
+
+            // Sobrescribir con datos reales
+            data.forEach(r => {
+                preloaded[r.estudiante_id] = r.estado
+            })
+
+            setAttendance(preloaded)
+
+        } catch (err) {
+            console.error(err)
+            setError('Error cargando historial')
+        } finally {
+            setLoadingKey('history', false)
         }
+    }, [selectedDate, students])
 
+    // 🔹 3. Ejecutar cuando cambie fecha o estudiantes
+    useEffect(() => {
         loadHistory()
-    }, [selectedDate])
+    }, [loadHistory])
 
-    // 🔹 marcar
+    // 🔹 4. Marcar asistencia (instantáneo en UI)
     const mark = useCallback((id, estado) => {
         setAttendance(prev => ({
             ...prev,
@@ -82,7 +93,7 @@ export function useAttendance() {
         }))
     }, [])
 
-    // 🔹 guardar uno (autoguardado)
+    // 🔹 5. Guardar uno (AUTOGUARDADO)
     const saveOne = useCallback(async (id, estado) => {
         try {
             await guardarAsistencia([{
@@ -90,13 +101,16 @@ export function useAttendance() {
                 estado,
                 fecha: selectedDate
             }])
+
+            await loadHistory() // 🔥 sincroniza UI con BD
+
         } catch (err) {
             console.error(err)
             setError("Error guardando asistencia")
         }
-    }, [selectedDate])
+    }, [selectedDate, loadHistory])
 
-    // 🔹 guardar todos
+    // 🔹 6. Guardar todos
     const saveAll = useCallback(async () => {
         try {
             setLoadingKey('saving', true)
@@ -108,6 +122,7 @@ export function useAttendance() {
             }))
 
             await guardarAsistencia(registros)
+            await loadHistory() // 🔥 sincroniza
 
         } catch (err) {
             console.error(err)
@@ -115,8 +130,9 @@ export function useAttendance() {
         } finally {
             setLoadingKey('saving', false)
         }
-    }, [attendance, selectedDate])
+    }, [attendance, selectedDate, loadHistory])
 
+    // 🔹 7. Resumen automático
     const summary = {
         total: students.length,
         present: Object.values(attendance).filter(e => e === 'P').length,

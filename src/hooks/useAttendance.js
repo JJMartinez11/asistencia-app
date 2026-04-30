@@ -19,6 +19,8 @@ export function useAttendance() {
     const [history, setHistory] = useState([]);
     const [selectedDate, setSelectedDate] = useState(todayString());
 
+    const [saveStatus, setSaveStatus] = useState(null);
+
     const [loading, setLoading] = useState({
         classes: false,
         students: false,
@@ -32,7 +34,6 @@ export function useAttendance() {
         setLoading(prev => ({ ...prev, [key]: value }));
     };
 
-    // Load classes
     useEffect(() => {
         async function loadClasses() {
             setLoadingKey("classes", true);
@@ -58,7 +59,6 @@ export function useAttendance() {
         loadClasses();
     }, []);
 
-    // Load students by class
     useEffect(() => {
         async function loadStudents() {
             if (!selectedClassId) {
@@ -86,7 +86,6 @@ export function useAttendance() {
         loadStudents();
     }, [selectedClassId]);
 
-    // Load attendance
     const loadHistory = useCallback(async () => {
         if (!selectedClassId || students.length === 0) {
             setHistory([]);
@@ -130,7 +129,6 @@ export function useAttendance() {
         loadHistory();
     }, [loadHistory]);
 
-    // Mark locally
     const mark = useCallback((studentId, status) => {
         setAttendance(prev => ({
             ...prev,
@@ -138,12 +136,12 @@ export function useAttendance() {
         }));
     }, []);
 
-    // Save one
     const saveOne = useCallback(async (studentId, status) => {
         if (!selectedClassId) return;
 
         try {
             setError(null);
+            setSaveStatus("saving");
 
             await saveAttendance([{
                 student_id: studentId,
@@ -152,20 +150,27 @@ export function useAttendance() {
                 date: selectedDate
             }]);
 
+            setSaveStatus("success");
+
+            setTimeout(() => {
+                setSaveStatus(null);
+            }, 1500);
+
             await loadHistory();
         } catch (err) {
             console.error(err);
+            setSaveStatus("error");
             setError("Error saving attendance");
         }
     }, [selectedClassId, selectedDate, loadHistory]);
 
-    // Save all
     const saveAll = useCallback(async () => {
         if (!selectedClassId) return;
 
         try {
             setLoadingKey("saving", true);
             setError(null);
+            setSaveStatus("saving");
 
             const records = Object.entries(attendance).map(([studentId, status]) => ({
                 student_id: studentId,
@@ -175,9 +180,17 @@ export function useAttendance() {
             }));
 
             await saveAttendance(records);
+
+            setSaveStatus("success");
+
+            setTimeout(() => {
+                setSaveStatus(null);
+            }, 1500);
+
             await loadHistory();
         } catch (err) {
             console.error(err);
+            setSaveStatus("error");
             setError("Error saving attendance");
         } finally {
             setLoadingKey("saving", false);
@@ -203,6 +216,7 @@ export function useAttendance() {
         summary,
         loading,
         error,
+        saveStatus,
         mark,
         saveOne,
         saveAll,

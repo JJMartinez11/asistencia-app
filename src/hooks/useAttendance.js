@@ -1,145 +1,201 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from "react";
 import {
-    getEstudiantes,
-    getHistorial,
-    guardarAsistencia
-} from '../services/attendanceService'
+    getClasses,
+    getStudentsByClass,
+    getAttendanceByClassAndDate,
+    saveAttendance
+} from "../services/attendanceService";
 
 function todayString() {
-    return new Date().toISOString().split('T')[0]
+    return new Date().toISOString().split("T")[0];
 }
 
 export function useAttendance() {
-    const [students, setStudents] = useState([])
-    const [attendance, setAttendance] = useState({})
-    const [history, setHistory] = useState([])
-    const [selectedDate, setSelectedDate] = useState(todayString())
+    const [classes, setClasses] = useState([]);
+    const [selectedClassId, setSelectedClassId] = useState("");
+
+    const [students, setStudents] = useState([]);
+    const [attendance, setAttendance] = useState({});
+    const [history, setHistory] = useState([]);
+    const [selectedDate, setSelectedDate] = useState(todayString());
 
     const [loading, setLoading] = useState({
+        classes: false,
         students: false,
         history: false,
         saving: false
-    })
+    });
 
-    const [error, setError] = useState(null)
+    const [error, setError] = useState(null);
 
     const setLoadingKey = (key, value) => {
-        setLoading(prev => ({ ...prev, [key]: value }))
-    }
+        setLoading(prev => ({ ...prev, [key]: value }));
+    };
 
-    // 🔹 1. Cargar estudiantes (solo una vez)
+    // Load classes
     useEffect(() => {
-        async function loadStudents() {
-            setLoadingKey('students', true)
+        async function loadClasses() {
+            setLoadingKey("classes", true);
+            setError(null);
+
             try {
-                const { data, error } = await getEstudiantes()
-                if (error) throw error
-                setStudents(data)
+                const { data, error } = await getClasses();
+                if (error) throw error;
+
+                setClasses(data);
+
+                if (data.length > 0) {
+                    setSelectedClassId(data[0].id);
+                }
             } catch (err) {
-                console.error(err)
-                setError('Error cargando estudiantes')
+                console.error(err);
+                setError("Error loading classes");
             } finally {
-                setLoadingKey('students', false)
+                setLoadingKey("classes", false);
             }
         }
 
-        loadStudents()
-    }, [])
+        loadClasses();
+    }, []);
 
-    // 🔹 2. Función reutilizable para historial
+    // Load students by class
+    useEffect(() => {
+        async function loadStudents() {
+            if (!selectedClassId) {
+                setStudents([]);
+                return;
+            }
+
+            setLoadingKey("students", true);
+            setError(null);
+
+            try {
+                const { data, error } = await getStudentsByClass(selectedClassId);
+                if (error) throw error;
+
+                setStudents(data);
+            } catch (err) {
+                console.error(err);
+                setError("Error loading students");
+                setStudents([]);
+            } finally {
+                setLoadingKey("students", false);
+            }
+        }
+
+        loadStudents();
+    }, [selectedClassId]);
+
+    // Load attendance
     const loadHistory = useCallback(async () => {
-        if (students.length === 0) return
+        if (!selectedClassId || students.length === 0) {
+            setHistory([]);
+            setAttendance({});
+            return;
+        }
 
-        setLoadingKey('history', true)
+        setLoadingKey("history", true);
+        setError(null);
 
         try {
-            const { data, error } = await getHistorial(selectedDate)
-            if (error) throw error
+            const { data, error } = await getAttendanceByClassAndDate(
+                selectedClassId,
+                selectedDate
+            );
 
-            setHistory(data)
+            if (error) throw error;
 
-            const preloaded = {}
+            setHistory(data);
 
-            // Todos ausentes por defecto
-            students.forEach(s => {
-                preloaded[s.id] = "A"
-            })
+            const preloaded = {};
 
-            // Sobrescribir con datos reales
-            data.forEach(r => {
-                preloaded[r.estudiante_id] = r.estado
-            })
+            students.forEach(student => {
+                preloaded[student.id] = "A";
+            });
 
-            setAttendance(preloaded)
+            data.forEach(record => {
+                preloaded[record.student_id] = record.status;
+            });
 
+            setAttendance(preloaded);
         } catch (err) {
-            console.error(err)
-            setError('Error cargando historial')
+            console.error(err);
+            setError("Error loading attendance");
         } finally {
-            setLoadingKey('history', false)
+            setLoadingKey("history", false);
         }
-    }, [selectedDate, students])
+    }, [selectedClassId, selectedDate, students]);
 
-    // 🔹 3. Ejecutar cuando cambie fecha o estudiantes
     useEffect(() => {
-        loadHistory()
-    }, [loadHistory])
+        loadHistory();
+    }, [loadHistory]);
 
-    // 🔹 4. Marcar asistencia (instantáneo en UI)
-    const mark = useCallback((id, estado) => {
+    // Mark locally
+    const mark = useCallback((studentId, status) => {
         setAttendance(prev => ({
             ...prev,
-            [id]: estado
-        }))
-    }, [])
+            [studentId]: status
+        }));
+    }, []);
 
-    // 🔹 5. Guardar uno (AUTOGUARDADO)
-    const saveOne = useCallback(async (id, estado) => {
+    // Save one
+    const saveOne = useCallback(async (studentId, status) => {
+        if (!selectedClassId) return;
+
         try {
-            await guardarAsistencia([{
-                estudiante_id: id,
-                estado,
-                fecha: selectedDate
-            }])
+            setError(null);
 
-            await loadHistory() // 🔥 sincroniza UI con BD
+            await saveAttendance([{
+                student_id: studentId,
+                class_id: selectedClassId,
+                status,
+                date: selectedDate
+            }]);
 
+            await loadHistory();
         } catch (err) {
-            console.error(err)
-            setError("Error guardando asistencia")
+            console.error(err);
+            setError("Error saving attendance");
         }
-    }, [selectedDate, loadHistory])
+    }, [selectedClassId, selectedDate, loadHistory]);
 
-    // 🔹 6. Guardar todos
+    // Save all
     const saveAll = useCallback(async () => {
+        if (!selectedClassId) return;
+
         try {
-            setLoadingKey('saving', true)
+            setLoadingKey("saving", true);
+            setError(null);
 
-            const registros = Object.entries(attendance).map(([id, estado]) => ({
-                estudiante_id: id,
-                estado,
-                fecha: selectedDate
-            }))
+            const records = Object.entries(attendance).map(([studentId, status]) => ({
+                student_id: studentId,
+                class_id: selectedClassId,
+                status,
+                date: selectedDate
+            }));
 
-            await guardarAsistencia(registros)
-            await loadHistory() // 🔥 sincroniza
-
+            await saveAttendance(records);
+            await loadHistory();
         } catch (err) {
-            console.error(err)
-            setError('Error guardando asistencia')
+            console.error(err);
+            setError("Error saving attendance");
         } finally {
-            setLoadingKey('saving', false)
+            setLoadingKey("saving", false);
         }
-    }, [attendance, selectedDate, loadHistory])
+    }, [attendance, selectedClassId, selectedDate, loadHistory]);
 
-    // 🔹 7. Resumen automático
+    const selectedClass = classes.find(c => c.id === selectedClassId) || null;
+
     const summary = {
         total: students.length,
-        present: Object.values(attendance).filter(e => e === 'P').length,
-        absent: Object.values(attendance).filter(e => e === 'A').length,
-    }
+        present: Object.values(attendance).filter(status => status === "P").length,
+        absent: Object.values(attendance).filter(status => status === "A").length,
+    };
 
     return {
+        classes,
+        selectedClass,
+        selectedClassId,
         students,
         history,
         attendance,
@@ -150,6 +206,7 @@ export function useAttendance() {
         mark,
         saveOne,
         saveAll,
-        setDate: setSelectedDate
-    }
+        setDate: setSelectedDate,
+        setSelectedClassId
+    };
 }

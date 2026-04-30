@@ -1,158 +1,125 @@
 import { useAttendance } from "./hooks/useAttendance";
+import { exportToCSV } from "./utils/exportToCSV";
+
+import Header from "./components/Header";
+import SummaryCard from "./components/SummaryCard";
+import ClassSelector from "./components/ClassSelector";
+import DateSelector from "./components/DateSelector";
+import AttendanceList from "./components/AttendanceList";
+import HistoryPanel from "./components/HistoryPanel";
 
 function App() {
     const {
+        classes,
+        selectedClass,
+        selectedClassId,
         students,
         history,
         attendance,
         selectedDate,
         summary,
+        loading,
+        error,
         mark,
         saveOne,
-        setDate
+        setDate,
+        setSelectedClassId
     } = useAttendance();
 
-    const mapaEstudiantes = {};
-    students.forEach(e => {
-        mapaEstudiantes[e.id] = e.nombre;
-    });
-
-    const historialAgrupado = history.reduce((acc, item) => {
-        if (!acc[item.fecha]) {
-            acc[item.fecha] = [];
-        }
-        acc[item.fecha].push(item);
-        return acc;
-    }, {});
+    const handleExport = () => {
+        exportToCSV(students, attendance, selectedDate);
+    };
 
     return (
-        <div style={{
-            maxWidth: "500px",
-            margin: "0 auto",
-            padding: "20px",
-            fontFamily: "Arial"
-        }}>
-            <h1 style={{ textAlign: "center" }}>📋 Asistencia</h1>
+        <div style={styles.page}>
+            <div style={styles.app}>
+                <Header />
 
-            {/* CONTADOR */}
-            <div style={{
-                textAlign: "center",
-                marginBottom: "20px",
-                fontSize: "18px",
-                fontWeight: "bold"
-            }}>
-                {summary.present} / {summary.total} presentes
+                {error && (
+                    <div style={styles.errorBox}>
+                        ⚠ {error}
+                    </div>
+                )}
+
+                <SummaryCard summary={summary} selectedClass={selectedClass} />
+
+                <ClassSelector
+                    classes={classes}
+                    selectedClassId={selectedClassId}
+                    onChange={setSelectedClassId}
+                    loading={loading.classes}
+                />
+
+                <DateSelector
+                    selectedDate={selectedDate}
+                    onChange={setDate}
+                />
+
+                <button
+                    onClick={handleExport}
+                    disabled={students.length === 0}
+                    style={{
+                        ...styles.exportButton,
+                        opacity: students.length === 0 ? 0.5 : 1,
+                        cursor: students.length === 0 ? "not-allowed" : "pointer"
+                    }}
+                >
+                    📥 Export CSV
+                </button>
+
+                <AttendanceList
+                    students={students}
+                    attendance={attendance}
+                    loading={loading.students || loading.history}
+                    onMark={(studentId, status) => {
+                        mark(studentId, status);
+                        saveOne(studentId, status);
+                    }}
+                />
+
+                <HistoryPanel
+                    history={history}
+                    students={students}
+                />
             </div>
-
-            {/* FECHA */}
-            <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setDate(e.target.value)}
-                style={{
-                    width: "100%",
-                    padding: "10px",
-                    marginBottom: "20px",
-                    borderRadius: "8px",
-                    border: "1px solid #ccc"
-                }}
-            />
-
-            {/* LISTA */}
-            {students.map((e) => (
-                <div key={e.id} style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "8px 10px",
-                    marginBottom: "5px",
-                    borderRadius: "8px",
-                    background: attendance[e.id] === "P" ? "#dcfce7" : "#fee2e2"
-                }}>
-                    <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: "500" }}>
-                            {e.nombre}
-                        </div>
-                    </div>
-
-                    <div style={{ display: "flex", gap: "5px" }}>
-                        <button
-                            onClick={() => {
-                                mark(e.id, "P");
-                                saveOne(e.id, "P");
-                            }}
-                            style={{
-                                padding: "6px 10px",
-                                borderRadius: "6px",
-                                border: "none",
-                                cursor: "pointer",
-                                fontSize: "12px",
-                                background: attendance[e.id] === "P" ? "#22c55e" : "#e5e7eb",
-                                color: attendance[e.id] === "P" ? "white" : "black"
-                            }}
-                        >
-                            ✔
-                        </button>
-
-                        <button
-                            onClick={() => {
-                                mark(e.id, "A");
-                                saveOne(e.id, "A");
-                            }}
-                            style={{
-                                padding: "6px 10px",
-                                borderRadius: "6px",
-                                border: "none",
-                                cursor: "pointer",
-                                fontSize: "12px",
-                                background: attendance[e.id] === "A" ? "#ef4444" : "#e5e7eb",
-                                color: attendance[e.id] === "A" ? "white" : "black"
-                            }}
-                        >
-                            ✖
-                        </button>
-                    </div>
-                </div>
-            ))}
-
-            {/* HISTORIAL */}
-            <h3 style={{ marginTop: "20px" }}>Historial</h3>
-
-            {Object.entries(historialAgrupado).map(([fecha, registros]) => {
-
-                // 🔥 FILTRAR DUPLICADOS AQUÍ (CORRECTO)
-                const registrosUnicos = Object.values(
-                    registros.reduce((acc, item) => {
-                        acc[item.estudiante_id] = item;
-                        return acc;
-                    }, {})
-                );
-
-                const presentes = registrosUnicos.filter(r => r.estado === "P").length;
-                const ausentes = registrosUnicos.filter(r => r.estado === "A").length;
-
-                return (
-                    <div key={fecha} style={{ marginBottom: "15px" }}>
-
-                        <div style={{ fontWeight: "bold" }}>
-                            📅 {fecha}
-                        </div>
-
-                        <div style={{ fontSize: "12px", color: "#666" }}>
-                            {presentes} presentes / {ausentes} ausentes
-                        </div>
-
-                        {registrosUnicos.map((h) => (
-                            <div key={h.id} style={{ marginLeft: "10px" }}>
-                                {h.estado === "P" ? "✔" : "✖"}{" "}
-                                {mapaEstudiantes[h.estudiante_id] || "Sin nombre"}
-                            </div>
-                        ))}
-                    </div>
-                );
-            })}
         </div>
     );
 }
+
+const styles = {
+    page: {
+        minHeight: "100vh",
+        background: "#f1f5f9",
+        padding: "16px",
+        fontFamily: "Arial, sans-serif"
+    },
+    app: {
+        maxWidth: "520px",
+        margin: "0 auto",
+        background: "#ffffff",
+        borderRadius: "18px",
+        padding: "18px",
+        boxShadow: "0 10px 30px rgba(15, 23, 42, 0.12)"
+    },
+    errorBox: {
+        background: "#fee2e2",
+        color: "#991b1b",
+        padding: "10px",
+        borderRadius: "10px",
+        marginBottom: "12px",
+        fontSize: "14px"
+    },
+    exportButton: {
+        width: "100%",
+        padding: "12px",
+        marginBottom: "16px",
+        borderRadius: "12px",
+        border: "none",
+        background: "#2563eb",
+        color: "white",
+        fontWeight: "bold",
+        fontSize: "15px"
+    }
+};
 
 export default App;

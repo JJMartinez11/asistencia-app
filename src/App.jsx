@@ -10,7 +10,8 @@ import AttendanceList from "./components/AttendanceList";
 import HistoryPanel from "./components/HistoryPanel";
 
 function App() {
-    const [dark, setDark] = useState(false);
+    const [dark, setDark]           = useState(false);
+    const [sidebarOpen, setSidebar] = useState(false);
 
     const {
         classes,
@@ -34,181 +35,167 @@ function App() {
         exportToCSV(students, attendance, selectedDate);
     };
 
+    const handleMark = (studentId, status) => {
+        mark(studentId, status);
+        saveOne(studentId, status);
+    };
+
     return (
         <div className={dark ? "dark" : ""}>
-            <div style={styles.page}>
-                <div style={styles.app}>
-                    <div style={styles.stickyTop}>
-                        <Header selectedClass={selectedClass} />
+            <div className="ut-shell">
 
-                        <button
-                            onClick={() => setDark(!dark)}
-                            style={styles.themeButton}
-                        >
-                            {dark ? "☀️ Light Mode" : "🌙 Dark Mode"}
-                        </button>
+                {/* Sidebar + Top Bar (via Header) */}
+                <Header
+                    selectedClass={selectedClass}
+                    dark={dark}
+                    onToggleDark={() => setDark(d => !d)}
+                    sidebarOpen={sidebarOpen}
+                    onToggleSidebar={() => setSidebar(o => !o)}
+                />
 
-                        <SummaryCard summary={summary} />
-                    </div>
+                {/* Main */}
+                <main className="ut-main">
+                    <div className="ut-page">
 
-                    <main style={styles.content}>
+                        {/* Error */}
                         {error && (
                             <div style={styles.errorBox}>
                                 ⚠ {error}
                             </div>
                         )}
 
-                        <section style={styles.controlsCard}>
-                            <ClassSelector
-                                classes={classes}
-                                selectedClassId={selectedClassId}
-                                onChange={setSelectedClassId}
-                                loading={loading.classes}
-                            />
+                        {/* Summary Cards */}
+                        <SummaryCard summary={summary} selectedClass={selectedClass} />
 
-                            <DateSelector
-                                selectedDate={selectedDate}
-                                onChange={setDate}
-                            />
+                        {/* Dashboard grid */}
+                        <div className="ut-dashboard-grid">
 
-                            <button
-                                onClick={handleExport}
-                                disabled={students.length === 0}
-                                style={{
-                                    ...styles.exportButton,
-                                    opacity: students.length === 0 ? 0.5 : 1,
-                                    cursor: students.length === 0 ? "not-allowed" : "pointer"
-                                }}
-                            >
-                                📥 Export CSV
-                            </button>
+                            {/* Left column */}
+                            <div>
+                                {/* Controls card */}
+                                <div className="ut-card ut-controls" style={{ marginBottom: 16 }}>
+                                    <div style={styles.controlsTitle}>
+                                        <span>🎛</span> Configurar sesión
+                                    </div>
 
-                            {saveStatus === "saving" && (
-                                <div style={styles.savingStatus}>
-                                    ⏳ Saving...
+                                    <div className="ut-controls__row">
+                                        <div className="ut-controls__group">
+                                            <ClassSelector
+                                                classes={classes}
+                                                selectedClassId={selectedClassId}
+                                                onChange={setSelectedClassId}
+                                                loading={loading.classes}
+                                            />
+                                        </div>
+                                        <div className="ut-controls__group">
+                                            <DateSelector
+                                                selectedDate={selectedDate}
+                                                onChange={setDate}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div style={styles.controlsActions}>
+                                        <button
+                                            className="ut-btn ut-btn-primary"
+                                            onClick={handleExport}
+                                            disabled={students.length === 0}
+                                        >
+                                            📥 Exportar CSV
+                                        </button>
+
+                                        {saveStatus === "saving" && (
+                                            <span className="ut-status ut-status--saving">
+                                                ⏳ Guardando…
+                                            </span>
+                                        )}
+                                        {saveStatus === "success" && (
+                                            <span className="ut-status ut-status--success">
+                                                ✅ Guardado
+                                            </span>
+                                        )}
+                                        {saveStatus === "error" && (
+                                            <span className="ut-status ut-status--error">
+                                                ❌ Error al guardar
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
-                            )}
 
-                            {saveStatus === "success" && (
-                                <div style={styles.successStatus}>
-                                    ✅ Saved
+                                {/* Attendance list */}
+                                <div className="ut-card" style={{ padding: "20px" }}>
+                                    <AttendanceList
+                                        students={students}
+                                        attendance={attendance}
+                                        loading={loading.students || loading.history}
+                                        onMark={handleMark}
+                                    />
                                 </div>
-                            )}
+                            </div>
 
-                            {saveStatus === "error" && (
-                                <div style={styles.errorStatus}>
-                                    ❌ Error saving
+                            {/* Right column */}
+                            <div>
+                                {/* QR Module preview */}
+                                <div className="ut-module-preview" style={{ marginBottom: 16 }}>
+                                    <span className="ut-module-preview__icon">📷</span>
+                                    <div className="ut-module-preview__title">Asistencia por QR</div>
+                                    <div className="ut-module-preview__desc">
+                                        Genera un código QR temporal para que los estudiantes registren su asistencia desde su celular.
+                                    </div>
+                                    <span className="ut-module-preview__badge">Próximamente</span>
                                 </div>
-                            )}
-                        </section>
 
-                        <AttendanceList
-                            students={students}
-                            attendance={attendance}
-                            loading={loading.students || loading.history}
-                            onMark={(studentId, status) => {
-                                mark(studentId, status);
-                                saveOne(studentId, status);
-                            }}
-                        />
+                                {/* Grades Module preview */}
+                                <div className="ut-module-preview" style={{ marginBottom: 16 }}>
+                                    <span className="ut-module-preview__icon">📝</span>
+                                    <div className="ut-module-preview__title">Evaluaciones y Notas</div>
+                                    <div className="ut-module-preview__desc">
+                                        Crea actividades, asigna puntajes y lleva el seguimiento académico de cada estudiante.
+                                    </div>
+                                    <span className="ut-module-preview__badge">Próximamente</span>
+                                </div>
 
-                        <HistoryPanel
-                            history={history}
-                            students={students}
-                        />
-                    </main>
-                </div>
+                                {/* History */}
+                                <HistoryPanel
+                                    history={history}
+                                    students={students}
+                                />
+                            </div>
+
+                        </div>
+                    </div>
+                </main>
             </div>
         </div>
     );
 }
 
 const styles = {
-    page: {
-        minHeight: "100vh",
-        background: "var(--bg)",
-        padding: "0 14px 24px",
-        fontFamily: "Arial, sans-serif"
-    },
-    app: {
-        maxWidth: "540px",
-        margin: "0 auto"
-    },
-    stickyTop: {
-        position: "sticky",
-        top: 0,
-        zIndex: 10,
-        padding: "14px 0 12px",
-        background: "var(--bg)"
-    },
-    content: {
-        paddingBottom: "20px"
-    },
-    controlsCard: {
-        background: "var(--card)",
-        borderRadius: "18px",
-        padding: "16px",
-        marginBottom: "16px",
-        boxShadow: "0 10px 24px rgba(15, 23, 42, 0.08)",
-        border: "1px solid #334155"
-    },
     errorBox: {
-        background: "#fee2e2",
+        background: "rgba(239,68,68,0.1)",
         color: "#991b1b",
-        padding: "12px",
-        borderRadius: "14px",
-        marginBottom: "12px",
+        border: "1px solid rgba(239,68,68,0.25)",
+        padding: "12px 16px",
+        borderRadius: "12px",
+        marginBottom: "16px",
         fontSize: "14px",
-        fontWeight: "bold"
+        fontWeight: "600"
     },
-    exportButton: {
-        width: "100%",
-        padding: "13px",
-        borderRadius: "14px",
-        border: "none",
-        background: "var(--primary)",
-        color: "white",
-        fontWeight: "bold",
-        fontSize: "15px",
-        boxShadow: "0 8px 18px rgba(37, 99, 235, 0.28)"
+    controlsTitle: {
+        fontSize: "14px",
+        fontWeight: "700",
+        color: "var(--text-2)",
+        marginBottom: "14px",
+        display: "flex",
+        alignItems: "center",
+        gap: "8px"
     },
-    themeButton: {
-        width: "100%",
-        margin: "10px 0",
-        padding: "11px",
-        borderRadius: "14px",
-        border: "none",
-        background: "#111827",
-        color: "white",
-        fontWeight: "bold",
-        cursor: "pointer"
-    },
-    savingStatus: {
-        marginTop: "10px",
-        padding: "10px",
-        borderRadius: "12px",
-        background: "#fef3c7",
-        color: "#92400e",
-        fontWeight: "bold",
-        textAlign: "center"
-    },
-    successStatus: {
-        marginTop: "10px",
-        padding: "10px",
-        borderRadius: "12px",
-        background: "#dcfce7",
-        color: "#166534",
-        fontWeight: "bold",
-        textAlign: "center"
-    },
-    errorStatus: {
-        marginTop: "10px",
-        padding: "10px",
-        borderRadius: "12px",
-        background: "#fee2e2",
-        color: "#991b1b",
-        fontWeight: "bold",
-        textAlign: "center"
+    controlsActions: {
+        display: "flex",
+        alignItems: "center",
+        gap: "12px",
+        marginTop: "14px",
+        flexWrap: "wrap"
     }
 };
 

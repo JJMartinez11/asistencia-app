@@ -1,28 +1,69 @@
 function HistoryPanel({ history, students }) {
     const studentMap = {};
+    students.forEach(s => { studentMap[s.id] = s.name; });
 
-    students.forEach(student => {
-        studentMap[student.id] = student.name;
-    });
+    const presentList = history.filter(r => r.status === "P");
+    const absentList  = history.filter(r => r.status === "A");
 
     return (
-        <div style={styles.panel}>
-            <h3 style={styles.title}>History</h3>
+        <div className="ut-card" style={styles.panel}>
+            <div className="ut-section-header" style={{ marginBottom: 16 }}>
+                <div className="ut-section-title">
+                    <span>🕐</span>
+                    Historial del día
+                </div>
+                {history.length > 0 && (
+                    <span style={styles.total}>
+                        {history.length} registros
+                    </span>
+                )}
+            </div>
 
             {history.length === 0 ? (
-                <p style={styles.empty}>No attendance records for this date.</p>
+                <div className="ut-empty" style={{ padding: "20px 0" }}>
+                    <div style={{ fontSize: 28, marginBottom: 6 }}>📋</div>
+                    <div>Sin registros para esta fecha.</div>
+                </div>
             ) : (
-                history.map(record => (
-                    <div key={record.id} style={styles.item}>
-                        <span>
-                            {record.status === "P" ? "✔" : "✖"}
-                        </span>
+                <div>
+                    {/* Presentes */}
+                    {presentList.length > 0 && (
+                        <div style={styles.group}>
+                            <div style={styles.groupLabel}>
+                                <span className="ut-chip ut-chip--green">Presentes</span>
+                                <span style={styles.count}>{presentList.length}</span>
+                            </div>
+                            {presentList.map(record => (
+                                <div
+                                    key={record.id}
+                                    className="ut-history-record ut-history-record--present"
+                                >
+                                    <div className="ut-history-dot ut-history-dot--present" />
+                                    {studentMap[record.student_id] || "Estudiante desconocido"}
+                                </div>
+                            ))}
+                        </div>
+                    )}
 
-                        <span>
-                            {studentMap[record.student_id] || "Unknown student"}
-                        </span>
-                    </div>
-                ))
+                    {/* Ausentes */}
+                    {absentList.length > 0 && (
+                        <div style={styles.group}>
+                            <div style={styles.groupLabel}>
+                                <span className="ut-chip ut-chip--red">Ausentes</span>
+                                <span style={styles.count}>{absentList.length}</span>
+                            </div>
+                            {absentList.map(record => (
+                                <div
+                                    key={record.id}
+                                    className="ut-history-record ut-history-record--absent"
+                                >
+                                    <div className="ut-history-dot ut-history-dot--absent" />
+                                    {studentMap[record.student_id] || "Estudiante desconocido"}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
             )}
         </div>
     );
@@ -30,24 +71,30 @@ function HistoryPanel({ history, students }) {
 
 const styles = {
     panel: {
-        marginTop: "18px",
-        paddingTop: "12px",
-        borderTop: "1px solid #e2e8f0"
+        padding: "20px",
+        marginTop: 16
     },
-    title: {
-        margin: "0 0 10px",
-        color: "#0f172a"
+    group: {
+        marginBottom: 14
     },
-    empty: {
-        fontSize: "14px",
-        color: "#64748b"
-    },
-    item: {
+    groupLabel: {
         display: "flex",
-        gap: "8px",
-        fontSize: "14px",
-        padding: "5px 0",
-        color: "#334155"
+        alignItems: "center",
+        gap: 8,
+        marginBottom: 8
+    },
+    count: {
+        fontSize: 13,
+        color: "var(--text-3)",
+        fontWeight: 600
+    },
+    total: {
+        fontSize: 12,
+        fontWeight: 600,
+        color: "var(--text-3)",
+        background: "var(--bg-2)",
+        padding: "4px 10px",
+        borderRadius: "99px"
     }
 };
 

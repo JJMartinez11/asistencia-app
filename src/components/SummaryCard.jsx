@@ -1,60 +1,95 @@
-function SummaryCard({ summary, selectedClass }) {
-    const percentage =
-        summary.total > 0
-            ? Math.round((summary.present / summary.total) * 100)
-            : 0;
+function SummaryCard({ summary }) {
+    const total    = summary?.total   ?? 0;
+    const present  = summary?.present ?? 0;
+    const absent   = total - present;
+    const pct      = total > 0 ? Math.round((present / total) * 100) : 0;
+
+    const cards = [
+        {
+            label: "Total",
+            value: total,
+            icon: "👥",
+            colorClass: "blue",
+            desc: "estudiantes"
+        },
+        {
+            label: "Presentes",
+            value: present,
+            icon: "✅",
+            colorClass: "green",
+            desc: "marcados"
+        },
+        {
+            label: "Ausentes",
+            value: absent,
+            icon: "❌",
+            colorClass: "red",
+            desc: "sin marcar"
+        },
+        {
+            label: "Asistencia",
+            value: `${pct}%`,
+            icon: "📊",
+            colorClass: "blue",
+            desc: "de la clase",
+            isPercent: true,
+            pct
+        }
+    ];
 
     return (
-        <div style={styles.card}>
-            <div>
-                <div style={styles.label}>Current class</div>
-                <div style={styles.className}>
-                    {selectedClass?.name || "No class selected"}
-                </div>
-            </div>
+        <div className="ut-summary-grid">
+            {cards.map((card) => (
+                <div key={card.label} className="ut-card" style={styles.card}>
+                    <div style={styles.cardTop}>
+                        <span style={styles.cardIcon}>{card.icon}</span>
+                        <span className={`ut-chip ut-chip--${card.colorClass}`}>
+                            {card.label}
+                        </span>
+                    </div>
 
-            <div style={styles.stats}>
-                <div style={styles.counter}>
-                    {summary.present}/{summary.total}
+                    <div style={styles.cardValue}>{card.value}</div>
+                    <div style={styles.cardDesc}>{card.desc}</div>
+
+                    {card.isPercent && (
+                        <div className="ut-progress-bar" style={{ marginTop: 10 }}>
+                            <div
+                                className="ut-progress-fill"
+                                style={{ width: `${card.pct}%` }}
+                            />
+                        </div>
+                    )}
                 </div>
-                <div style={styles.percentage}>
-                    {percentage}% present
-                </div>
-            </div>
+            ))}
         </div>
     );
 }
 
 const styles = {
     card: {
-        background: "linear-gradient(135deg, #1e293b, #334155)",
-        color: "white",
-        padding: "16px",
-        borderRadius: "16px",
-        marginBottom: "14px",
+        padding: "16px 18px",
+    },
+    cardTop: {
         display: "flex",
-        justifyContent: "space-between",
         alignItems: "center",
-        gap: "12px"
+        justifyContent: "space-between",
+        marginBottom: 10
     },
-    label: {
-        fontSize: "12px",
-        color: "#cbd5e1"
+    cardIcon: {
+        fontSize: 20
     },
-    className: {
-        fontSize: "17px",
-        fontWeight: "bold"
+    cardValue: {
+        fontSize: 28,
+        fontWeight: 800,
+        color: "var(--text)",
+        lineHeight: 1,
+        fontFamily: "'DM Mono', monospace"
     },
-    stats: {
-        textAlign: "right"
-    },
-    counter: {
-        fontSize: "24px",
-        fontWeight: "bold"
-    },
-    percentage: {
-        fontSize: "12px",
-        color: "#cbd5e1"
+    cardDesc: {
+        fontSize: 12,
+        color: "var(--text-3)",
+        marginTop: 4,
+        fontWeight: 500
     }
 };
 
